@@ -68,17 +68,59 @@ service VersionExtObj {
     }];
 }
 ```
+使用时
+```
+- (void)checkVersion{
+    PB3GetLastVersionReq *req = [[PB3GetLastVersionReq alloc] init];
+    req.platform = @"iOS";
+    req.version = [NSString appVersion];
+    [ZYGService(IHXVersionServiceComponent) getLastVersion:req
+                                                  complete:^(HXRequestResponseStatus response, id  _Nullable result) {
+        if (response == HXNetworkResponseNormal && [result isKindOfClass:[PB3GetLastVersionRes class]]) {
+            PB3GetLastVersionRes *res = result;
+            // 处理逻辑
+            
+        }
+    }];
+}
+```
+
+> 注：  
+> 1、IHXVersionServiceComponent是一个协议，包含version这个模块所有的接口的调用方法：
+```
+@protocol IHXVersionServiceComponent <NSObject>
+
+-(void)getLastVersion:(PB3GetLastVersionReq *)req complete:(CompleteHandler)complete;
+
+-(void)installReport:(PB3InstallReportReq *)req complete:(CompleteHandler)complete;
+
+-(void)getViewHideInfo:(PB3GetViewHideInfoReq *)req complete:(CompleteHandler)complete;
+
+@end
+```
+> 2、```ZYGService(IHXVersionServiceComponent)```可以理解为获取一个遵循了```IHXVersionServiceComponent```协议的单例对象。  
+
+
 当面对成千上万的接口的时候，如：
 
 ![](https://github.com/zwp/PBAutomaker/blob/master/QQ20201224-181242.png)
 
-这其中的代码量不言而喻，如何去避免繁重而重复的任务呢？这时候就该```PBAutomaker```上场了！
+这其中的代码量不言而喻，如何去避免繁重而重复的任务呢？这时候脚本就该上场了！
 
 
-### 思路
-1、解析```.proto```文件，提取其中的```module```模块名称、```service```服务对象名称、```functionName```方法名、```req```请求对象、```res```响应对象；  
-2、根据第一步解析的信息，生成每一个```module```对应一个```protocol```协议、一个继承自```HXNetworkServiceComponent```并以```module```命名的实现类，如：  
-3、
+### 实现思路
+* ##### 解析```.proto```文件  
+提取其中的```module```模块名称、```service```服务对象名称、```functionName```方法名、```req```请求对象、```res```响应对象
+
+* ##### 生成oc文件  
+根据第一步解析的信息，生成每一个```module```对应的一个```protocol```协议、一个继承自```HXNetworkServiceComponent```并以```module```命名的实现类，如：  
+
+![](https://github.com/zwp/PBAutomaker/blob/master/QQ20201225-172433.png)
+
+* ##### 扩展
+当某个模块需要接收服务端推送过来的消息时，需要在单例对象```ServiceComponent```初始化完成的时候订阅对应的消息，这时候就需要给```ServiceComponent```提供一个空的方法
+
+
 ### 思路
 ### 思路
 
