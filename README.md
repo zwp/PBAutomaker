@@ -1,6 +1,6 @@
 # PBAutomaker
 ### 需求背景
-在和后端对接```protobuf```接口时，```.proto```文件格式以```version.ext.proto```举例，如下：
+在和后端对接```protobuf```接口时，以```version.ext.proto```举例，如下：
 
 ```
 message GetLastVersionReq {
@@ -47,7 +47,7 @@ service VersionExtObj {
 ```GetLastVersionReq```：接口请求对象  
 ```GetLastVersionRes```：接口响应对象  
 
-项目中发起网络请求的方法如下：  
+由于需要接入公司的网络请求库，提供的发起网络请求的方法如下：  
 
 ```
 - (void)sendRequestWithReq:(id)req
@@ -56,7 +56,7 @@ service VersionExtObj {
               functionName:(NSString*)functionName
                 completion:(ZYGServiceRespCompletion)completion;
 ```
-其中```serviceName```为```"xxx.version.VersionExtObj"```, xxx由后台给。所以```GetLastVersion```接口对应的oc代码大概长这样子：  
+其中```serviceName```为```"xxx.version.VersionExtObj"```, xxx由后台给。所以一个```GetLastVersion```接口对应的oc代码大概长这样子：  
 ```   
 -(void)getLastVersion:(PB3GetLastVersionReq *)req complete:(CompleteHandler)complete{
     [self sendReq:req 
@@ -69,3 +69,16 @@ service VersionExtObj {
 }
 ```
 当面对成千上万的接口的时候，如：
+
+![](https://github.com/zwp/PBAutomaker/blob/master/QQ20201224-181242.png)
+
+这其中的代码量不言而喻，如何去避免繁重而重复的任务呢？这时候就该```PBAutomaker```上场了！
+
+
+### 思路
+1、解析```.proto```文件，提取其中的```module```模块名称、```service```服务对象名称、```functionName```方法名、```req```请求对象、```res```响应对象；  
+2、根据第一步解析的信息，生成每一个```module```对应一个```protocol```协议、一个继承自```HXNetworkServiceComponent```并以```module```命名的实现类，如：  
+3、
+### 思路
+### 思路
+
