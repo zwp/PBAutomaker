@@ -10,9 +10,6 @@ def generate_imp(service):
     text = text + '#import \"%s.h\"\n\n@implementation %s\n\nZYGSERVICE_COMPONENT_DECLARE(%s, ' \
                   'ZYGServiceLoadType_OnNeed, 0)\n\n' % (
                file_name, file_name, i_file_name)
-
-    text += '-(instancetype)init{\n    self = [super init];\n    [self customInitSelf];\n    return self;\n}\n\n'
-    text += '-(void)customInitSelf{\n\n}\n\n'
     return file_name, text
 
 
