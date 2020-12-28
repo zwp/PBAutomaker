@@ -92,13 +92,13 @@ service VersionExtObj {
 > 3、```ZYGService(IHXVersionServiceComponent)```可以理解为获取一个遵循了```IHXVersionServiceComponent```协议的单例对象。
 所以一个模块的代码结构大致为：  
 
-![](https://github.com/zwp/PBConvert/blob/master/QQ20201225-172433.png)
+![](https://github.com/zwp/PBConvert/blob/master/res/QQ20201225-172433.png)
 
 
 
 随着项目的拓展，当面对多个服务模块的时候，如：
 
-![](https://github.com/zwp/PBConvert/blob/master/QQ20201224-181242.png)
+![](https://github.com/zwp/PBConvert/blob/master/res/QQ20201224-181242.png)
 
 这意味着每个服务模块都需要创建一个对应的```ServiceComponent```，为了避免繁重而重复的任务，该脚本应运而生。
 
@@ -106,7 +106,7 @@ service VersionExtObj {
 
 先来看看效果：
 
-![](https://github.com/zwp/PBConvert/blob/master/WX20201228-105855.png)
+![](https://github.com/zwp/PBConvert/blob/master/res/WX20201228-105855.png)
 
 
 
