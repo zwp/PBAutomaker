@@ -65,6 +65,7 @@ fi
 
 done
 
+cd ..
 
 echo "开始将pb转化为oc接口..."
 
