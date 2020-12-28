@@ -14,16 +14,6 @@
 
 ZYGSERVICE_COMPONENT_DECLARE(IHXVersionServiceComponent, ZYGServiceLoadType_OnNeed, 0)
 
--(instancetype)init{
-    self = [super init];
-    [self customInitSelf];
-    return self;
-}
-
--(void)customInitSelf{
-
-}
-
 -(void)getLastVersion:(PB3GetLastVersionReq *)req complete:(CompleteHandler)complete{
     [self sendReq:req 
     rspClass:[PB3GetLastVersionRes class] 
