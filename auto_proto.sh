@@ -39,11 +39,12 @@ cd ..
 echo "移除keywords"
 if [ $env -eq 1 ];then
     echo "Release Mode"
-    python clean_pb.py Release
+    python pb_clean.py Release
 else
     echo "Debug Mode"
-    python clean_pb.py
+    python pb_clean.py
 fi
+
 echo "移除keywords完成"
 
 cd proto
