@@ -15,8 +15,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface HXVersionServiceComponent : HXNetworkServiceComponent<IHXVersionServiceComponent>
 
--(void)customInitSelf;
-
 @end
 
 NS_ASSUME_NONNULL_END
