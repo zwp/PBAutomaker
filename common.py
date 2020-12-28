@@ -5,7 +5,7 @@ import time
 target = 'demo'
 path = './' + target
 user_name = 'zwp'
-org = 'XYWL'
+org = 'XY'
 class_prefix = 'HX'
 
 # pb文件夹
