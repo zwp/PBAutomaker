@@ -3,7 +3,7 @@
 import time
 
 target = 'demo'
-path = './' + target
+# proj_path = '../../' + target + '-ios/' + target
 user_name = 'zwp'
 org = 'XY'
 class_prefix = 'HX'
@@ -12,10 +12,13 @@ class_prefix = 'HX'
 pb_path = './proto'
 
 # 本地目录（测试）
-code_path = './' + target + '/Network/'
+# code_path = './' + target + '/Network/'
 
 # iOS工程目录
-# code_path = '../../' + target + '-ios/' + target + '/Network/'
+code_path = '../../' + target + '-ios/' + target + '/Network/'
+
+# 需要自定义模块
+custom = ['oss', 'room', 'system', 'user']
 
 
 # 生成头文件注释部分

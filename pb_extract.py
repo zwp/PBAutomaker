@@ -46,7 +46,7 @@ def update_service():
             i_content = i_tuple[1]
 
             # .m
-            m_tuple = pb_imp.generate_imp(service_module)
+            m_tuple = pb_imp.generate_imp(service_module, flags[0])
             m_file_name = m_tuple[0]
             m_content = m_tuple[1]
 

@@ -19,24 +19,24 @@ def generate_header(file_type):
 
 def generate_router():
     # 打开头文件
-    h_file = common.path + '/' + router_file_name + '.h'
+    h_file = common.proj_path + '/' + router_file_name + '.h'
     h_header = generate_header('h')
     h_handler = open(h_file, 'w')
     h_handler.write(h_header)
 
     # 打开.m文件
-    m_file = common.path + '/' + router_file_name + '.m'
+    m_file = common.proj_path + '/' + router_file_name + '.m'
     m_header = generate_header('m')
     m_handler = open(m_file, 'w')
     m_handler.write(m_header)
 
     # 这些文件夹不用遍历
     paths = ['pb', 'res', 'Network', 'Assets.xcassets', 'Base.lproj', 'Public', '.DS_Store']
-    for d in os.listdir(common.path):
+    for d in os.listdir(common.proj_path):
         # 过滤部分文件和文件夹
         if d in paths:
             continue
-        sub_path = common.path + '/' + d
+        sub_path = common.proj_path + '/' + d
         if os.path.isfile(sub_path):
             continue
 
@@ -58,3 +58,7 @@ def generate_router():
                         m_handler.write(m_code)
     h_handler.close()
     m_handler.close()
+
+
+if __name__ == '__main__':
+    generate_router()

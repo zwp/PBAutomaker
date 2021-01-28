@@ -1,54 +1,25 @@
 
 ### 需求背景
-在和后端对接```protobuf```接口时，以```version.ext.proto```举例，如下：
+项目后端使用的是```protobuf```，通常拿到一个```xxx```服务模块的接口文件为```xxx.ext.proto```，以```version.ext.proto```举例，该文件包含了```version```这个服务提供的所有接口，如下所示：
 
 ```go
 message GetLastVersionReq {
-    string version = 1;
-    string platform = 2; // v050新增，平台 iOS/Android
+    ...
 }
 
 message GetLastVersionRes {
-    string version = 1;
-    ForceUpdate force_update = 2;
-    string remark = 3;
-    string pkg = 4;
-    HasInstall has_install = 5;
-    string date = 6; //日期
-}
-
-message InstallReportReq {
-    string version = 1;
-    string device = 2;
-}
-
-message InstallReportRes {
-}
-
-message GetViewHideInfoReq {
-    int64 id = 1;
-}
-
-message GetViewHideInfoRes {
-    ViewHideInfo info = 1;
+    ...
 }
 
 service VersionExtObj {
     // 获取最新版本
     rpc GetLastVersion (GetLastVersionReq) returns (GetLastVersionRes);
-    // 上报版本更新
-    rpc InstallReport (InstallReportReq) returns (InstallReportRes);
-    // 获取渠道版本显示规则
-    rpc GetViewHideInfo (GetViewHideInfoReq) returns (GetViewHideInfoRes);
-}
+    rpc ...
+    rpc ...
+    rpc ...
+} 
 ```
-```version.ext.proto```中的```version```代表服务模块，在```service```中```VersionExtObj```代表服务对象。以其中一个```rpc```举例：
-```GetLastVersion```：接口方法名  
-```GetLastVersionReq```：接口请求对象  
-```GetLastVersionRes```：接口响应对象  
-
-由于需要接入公司的网络请求库，提供的发起网络请求的方法如下：  
-
+用```protobuf```编译器将pb文件生成的OC文件中只有一些```enum``` 和 ```message```对象，并不包含```service```对象，而```service```中的每个```rpc```对应着一个网络请求接口。请求接口要走公司的网络请求库，如下：
 ```objective-c
 - (void)sendRequestWithReq:(id)req
                   rspClass:(Class)rspClass
@@ -56,178 +27,56 @@ service VersionExtObj {
               functionName:(NSString*)functionName
                 completion:(ZYGServiceRespCompletion)completion;
 ```
-其中```serviceName```为```"xxx.version.VersionExtObj"```, xxx由后台给。所以一个```GetLastVersion```接口对应的oc代码大概长这样子：  
+其中```serviceName```为```"项目名称.version.VersionExtObj"```， 所以一个```GetLastVersion```接口对应的OC代码大概长这样子：  
 ```   objective-c
--(void)getLastVersion:(PB3GetLastVersionReq *)req complete:(CompleteHandler)complete{
-    [self sendReq:req 
-    rspClass:[PB3GetLastVersionRes class] 
-    serviceName:self.serviceModule 
-    functionName:@"GetLastVersion" 
-    completion:^(id rsp, ZYGNetworkServiceError *error, ZYGServiceWupStatInfo *info) {
-         [self handleResponse:rsp error:error info:info complete:complete];
-    }];
-}
+PB3GetLastVersionReq *req = [[PB3GetLastVersionReq alloc] init];
+[ZYGService(IZYGNetworkService) sendRequestWithReq:req 
+rspClass:[PB3GetLastVersionRes class] 
+serviceName:"xxx.version.VersionExtObj" 
+functionName:@"GetLastVersion" 
+completion:^(id rsp, ZYGNetworkServiceError *error, ZYGServiceWupStatInfo *info) {
+	if ([rsp isKindOfClass:[PB3GetLastVersionRes class]]) {
+    PB3GetLastVersionRes *res = rsp;
+    // 处理逻辑
+  }
+}];
 ```
-使用时
-```objective-c
-- (void)checkVersion{
-    PB3GetLastVersionReq *req = [[PB3GetLastVersionReq alloc] init];
-    req.platform = @"iOS";
-    req.version = [NSString appVersion];
-    [ZYGService(IHXVersionServiceComponent) getLastVersion:req
-                                                  complete:^(HXRequestResponseStatus response, id  _Nullable result) {
-        if (response == HXNetworkResponseNormal && [result isKindOfClass:[PB3GetLastVersionRes class]]) {
-            PB3GetLastVersionRes *res = result;
-            // 处理逻辑
-        }
-    }];
-}
-```
+除了```version```模块，项目所有的```.proto```接口文件如下：
 
-> 注：  
-> 1、`IHXVersionServiceComponent`是一个协议，包含`version`这个模块所有的接口的调用方法；
->
-> 2、`HXVersionServiceComponent`遵循`IHXVersionServiceComponent`协议，是它的的实现类；
->
-> 3、```ZYGService(IHXVersionServiceComponent)```可以理解为获取一个遵循了```IHXVersionServiceComponent```协议的单例对象。
-所以一个模块的代码结构大致为：  
+![](https://github.com/zwp/PBConvert/blob/master/res/WX20210128-222022.png)
 
-![](https://github.com/zwp/PBConvert/blob/master/res/QQ20201225-172433.png)
-
-
-
-随着项目的拓展，当面对多个服务模块的时候，如：
-
-![](https://github.com/zwp/PBConvert/blob/master/res/QQ20201224-181242.png)
-
-这意味着每个服务模块都需要创建一个对应的```ServiceComponent```，为了避免繁重而重复的任务，该脚本应运而生。
-
-### 效果
-
-先来看看效果：
-
-![](https://github.com/zwp/PBConvert/blob/master/res/WX20201228-105855.png)
-
-
-
-
-
+面对这么多接口，如果按照上面那样的方式来编写请求接口的代码势必会非常繁琐，因为每次都需要对照`.proto`文件，将 ```req``` ```rspClass``` ```functionName```一一对应。那该怎么优化代码呢？
 
 ### 实现
-##### 解析```.proto```文件  
-提取其中的```module```模块名称、```service```服务对象名称、```functionName```方法名、```req```请求对象、```res```响应对象，主要代码如下：
 
-```python
+##### 一、拆分模块
 
-def update_service():
-    for roots, dirs, files in os.walk(common.pb_path):
-        for item in files:
-            flags = item.split('.')
-            if len(flags) != 3:
-                # 不是外部接口文件
-                continue
-            file_name = os.path.join(common.pb_path, item)
-            content = open(file_name).read()
-
-            # 查找 service 关键字所在那一行，取出 ExtObj
-            match = re.search(r"service.*" + "([\s\S]*?)\{", content)
-            if not match:
-                continue
-            service_obj = match.group().split(' ')[1]
-            service_module = service_obj[:-6]
-
-            # protocol
-            i_tuple = pb_proto.generate_interface(service_module, flags[0])
-            i_file_name = i_tuple[0]
-            i_content = i_tuple[1]
-
-            # .m
-            m_tuple = pb_imp.generate_imp(service_module)
-            m_file_name = m_tuple[0]
-            m_content = m_tuple[1]
-
-            # 取出完整的service，并解析出 function、req、res
-            service_obj_text = re.search(r"service.*" + service_obj + "([\s\S]*?)\}", content).group()
-            service_obj_text = remove_comments(service_obj_text)
-            rpc = re.finditer(r"rpc([\s\S]*?);", service_obj_text)
-            for r in rpc:
-                line_text = r.group()
-                # 解析出req、res
-                p = re.compile(r'[(](.*?)[)]', re.S)
-                array = re.findall(p, line_text)
-
-                # 解析function
-                func = re.search(r"rpc([\s\S]*?)\(", line_text).group()
-                for s in ['rpc', '(']:
-                    func = func.replace(s, '')
-                func = func.strip()
-                array.insert(0, func)
-                # 解析结果 array: ['GetLastVersion', 'GetLastVersionReq', 'GetLastVersionRes']
-
-                # 生成协议方法
-                i_content = i_content + pb_proto.generate_method(array)
-                # 生成实现方法
-                m_content = m_content + pb_imp.generate_method(array)
-
-            i_content = i_content + pb_proto.generate_end()
-            m_content = m_content + pb_imp.generate_end(flags[0], service_obj)
-            d = common.code_path + service_module
-            if not os.path.exists(d):
-                os.makedirs(d)
-                print('创建文件夹' + service_module)
-
-            # protocol
-            i_fh = open(d + '/' + i_file_name + '.h', 'w')
-            i_fh.write(i_content)
-            i_fh.close()
-
-            # .h
-            h_tuple = pb_interface.generate_interface(service_module)
-            h_file_name = h_tuple[0]
-            h_content = h_tuple[1]
-            h_fh = open(d + '/' + h_file_name + '.h', 'w')
-            h_fh.write(h_content)
-            h_fh.close()
-
-            # .m
-            m_fh = open(d + '/' + m_file_name + '.m', 'w')
-            m_fh.write(m_content)
-            m_fh.close()
-
-```
-
-
-
-##### 生成oc文件  
-根据第一步解析的信息，生成每一个```module```对应的一个```protocol```协议、一个继承自```HXNetworkServiceComponent```并以```module```命名的实现类，以`version`服务为例：
+为了方便管理、分清各个服务模块，将每个```.proto```文件对应的```OC```代码都包含了一个协议头文件一个继承自```NSObject```的实现类，以`version`模块举例如下：
 
 `IHXVersionServiceComponent.h`
 
 ```objective-c
-#import "HXNetwork.h"
 #import "VersionExt.pbobjc.h"
 
 @protocol IHXVersionServiceComponent <NSObject>
 
 -(void)getLastVersion:(PB3GetLastVersionReq *)req complete:(CompleteHandler)complete;
 
--(void)installReport:(PB3InstallReportReq *)req complete:(CompleteHandler)complete;
-
--(void)getViewHideInfo:(PB3GetViewHideInfoReq *)req complete:(CompleteHandler)complete;
+...
+...
 
 @end
-
 
 ```
 
 `HXVersionServiceComponent.h`
 
 ```objective-c
-
-#import "HXNetworkServiceComponent.h"
 #import "IHXVersionServiceComponent.h"
 
-@interface HXVersionServiceComponent : HXNetworkServiceComponent<IHXVersionServiceComponent>
+@interface HXVersionServiceComponent : NSObject<IHXVersionServiceComponent>
+  
+@property (nonatomic, copy) NSString *serviceModule;
 
 @end
 
@@ -236,7 +85,6 @@ def update_service():
 `HXVersionServiceComponent.m`
 
 ```objc
-
 #import "HXVersionServiceComponent.h"
 
 @implementation HXVersionServiceComponent
@@ -244,186 +92,153 @@ def update_service():
 ZYGSERVICE_COMPONENT_DECLARE(IHXVersionServiceComponent, ZYGServiceLoadType_OnNeed, 0)
 
 -(void)getLastVersion:(PB3GetLastVersionReq *)req complete:(CompleteHandler)complete{
-    [self sendReq:req 
+    [ZYGService(IHXNetworkServiceComponent) sendReq:req 
     rspClass:[PB3GetLastVersionRes class] 
     serviceName:self.serviceModule 
     functionName:@"GetLastVersion" 
     completion:^(id rsp, ZYGNetworkServiceError *error, ZYGServiceWupStatInfo *info) {
-         [self handleResponse:rsp error:error info:info complete:complete];
+         [ZYGService(IHXNetworkServiceComponent) handleResponse:rsp
+          																								error:error 
+          																				 				 info:info 
+          																		 				 complete:complete];
     }];
 }
 
--(void)installReport:(PB3InstallReportReq *)req complete:(CompleteHandler)complete{
-    [self sendReq:req 
-    rspClass:[PB3InstallReportRes class] 
-    serviceName:self.serviceModule 
-    functionName:@"InstallReport" 
-    completion:^(id rsp, ZYGNetworkServiceError *error, ZYGServiceWupStatInfo *info) {
-         [self handleResponse:rsp error:error info:info complete:complete];
-    }];
-}
-
--(void)getViewHideInfo:(PB3GetViewHideInfoReq *)req complete:(CompleteHandler)complete{
-    [self sendReq:req 
-    rspClass:[PB3GetViewHideInfoRes class] 
-    serviceName:self.serviceModule 
-    functionName:@"GetViewHideInfo" 
-    completion:^(id rsp, ZYGNetworkServiceError *error, ZYGServiceWupStatInfo *info) {
-         [self handleResponse:rsp error:error info:info complete:complete];
-    }];
-}
+...
+...
 
 #pragma mark - property
 
 -(NSString *)serviceModule{
-    return [NSString serverNameForModule:@"version" service:@"VersionExtObj"];
+    if (!_serviceModule) {
+        _serviceModule = [NSString serverNameForModule:@"version" service:@"VersionExtObj"];
+    }
+    return _serviceModule;
 }
-
 @end
+```
+
+> 注：`IHXNetworkServiceComponent`也是一个协议，`HXNetworkServiceComponent`实现类遵循了该协议，用于网络环境的初始化和网络请求的发起，`ZYGService(IHXNetworkServiceComponent)`可以认为是获取该实现类的单利对象。
+
+
+
+##### 二、脚本自动生成代码
+
+第一步虽然接口代码是按照模块分离了，但每个接口还是需要照着`.proto`文件一个个对应上，能不能通过什么途径去避免这些繁杂的工作呢？
+
+经过仔细分析文件结构，我发现只要按照一定的格式，这些文件完全可以用脚本生成，而且`.proto`文件中的```req``` ```rspClass``` ```functionName```等都可以通过正则解析后提取出来。所以处理流程如下：
+
+以以下`service`文件举例：
+
+```go
+service VersionExtObj {
+    rpc GetLastVersion (GetLastVersionReq) returns (GetLastVersionRes);
+} 
+
+```
+
+1、解析`.proto`文件，提取`service`对象，拿到最终的服务模块名称（即文件名称中的第一个单词）；
+
+`Python`脚本
+
+```python
+# 读取.proto文件
+content = open(file_name).read()
+# 查找 service 关键字所在那一行，取出 ExtObj
+match = re.search(r"service.*" + "([\s\S]*?)\{", content)
+# 取出 VersionExtObj
+service_obj = match.group().split(' ')[1]
+# 取出 Version， 与 version.ext.proto 中的 version 对应
+service_module = service_obj[:-6]
+```
+
+拿到了服务模块的名称，就可以根据名称生成对应的OC文件名、协议、实现类。
+
+
+
+2、提取`service`对象中的所有`rpc`，并将接口名、请求对象、响应对象存入数组中；
+
+```python
+# 取出完整的service，并解析出 function、req、res
+service_obj_text = re.search(r"service.*" + service_obj + "([\s\S]*?)\}", content).group()
+service_obj_text = remove_comments(service_obj_text)
+rpc = re.finditer(r"rpc([\s\S]*?);", service_obj_text)
+for r in rpc:
+  line_text = r.group()
+  # 解析出req、res
+  p = re.compile(r'[(](.*?)[)]', re.S)
+  array = re.findall(p, line_text)
+
+  # 解析function
+  func = re.search(r"rpc([\s\S]*?)\(", line_text).group()
+  for s in ['rpc', '(']:
+  func = func.replace(s, '')
+  func = func.strip()
+  array.insert(0, func)
+  # 解析结果 array: ['GetLastVersion', 'GetLastVersionReq', 'GetLastVersionRes']
 ```
 
 
 
-`HXNetworkServiceComponent`的代码如下：
+3、将解析结果按照固定格式拼接OC生成文件，具体代码在以下文件中。
 
-`HXNetworkServiceComponent.h`：
+[pb_extract.py](https://github.com/zwp/PBConvert/blob/master/pb_extract.py)：主文件
 
-```objective-c
-#import <Foundation/Foundation.h>
+[pb_proto.py](https://github.com/zwp/PBConvert/blob/master/pb_proto.py)：协议文件
 
-@interface HXNetworkServiceComponent : NSObject
-  
-// 提供给子类实现
-@property (nonatomic, copy, readonly) NSString *serviceModule;
+[pb_interface.py](https://github.com/zwp/PBConvert/blob/master/pb_interface.py)：实现类.h文件
 
-// 提供给子类的分类在 init 方法中完成一些初始化工作，如：订阅服务端发过来的推送消息
--(void)customMethod;
+[pb_imp.py](https://github.com/zwp/PBConvert/blob/master/pb_imp.py)：实现类.m文件
 
 
--(void)handleResponse:(id)rsp
 
-​        error:(ZYGNetworkServiceError *)error
+##### 三、模块的自定义
 
-​         info:(ZYGServiceWupStatInfo *)info
+上面的第二个步骤避免了需要手动编写大量重复代码的问题，但是当某个模块的需要在初始化完成后进行一些自定义操作，比如注册服务端的推送消息、数据的初始化或者注册通知等。为了避免修改脚本生成的代码，这时候就需要创建一个模块对应的分类，在分类中完成一些自定义的操作。
 
-​       complete:(CompleteHandler)complete;
-
-
-- (void)sendReq:(id)req
-
-​    rspClass:(Class)rspClass
-
-  serviceName:(NSString*)serviceName
-
-  functionName:(NSString*)functionName
-
-   completion:(ZYGServiceRespCompletion)completion;
-
-@end
-```
-
-`HXNetworkServiceComponent.m`：
+`IHXSystemServiceComponent.h`
 
 ```objective-c
-#import "HXNetworkServiceComponent.h"
-
-@interface HXNetworkServiceComponent ()<NetWorkServiceDelegate>
-
+/// IHXSystemServiceComponent.h
+/// 当某个接口模块需要自定义初始化方法时，遵循该协议，创建一个category，在category中实现该方法
+@protocol IHXServiceModule <NSObject>
+@optional
+-(void)serviceModuleCustomMethod;
 @end
   
-@implementation HXNetworkServiceComponent
+@protocol IHXSystemServiceComponent <IHXServiceModule>
+  
+@end
 
+// HXSystemServiceComponent.m 文件中添加实现init方法
 -(instancetype)init{
-    if (self = [super init]) {
-        [self initSelf];
-        [self customMethod];
+    self = [super init];
+    if ([self respondsToSelector:@selector(serviceModuleCustomMethod)]) {
+        [self serviceModuleCustomMethod];
     }
     return self;
 }
-
--(void)initSelf{
-  	[self configNetwork];
-  	[self registeNetworkStatusNotifications];
-}
-
--(void)configNetwork{
-		//初始化网络请求
-}
-
--(void)customMethod{
-    
-}
-
--(void)registeNetworkStatusNotifications{
-  //监听网络状态
-}
-
-#pragma mark - NetWorkServiceDelegate
-
--(void)serviceLog:(NSString *)msg{
-    NSLog(@"%@", msg);
-}
-
-- (void)sendReq:(id)req
-       rspClass:(Class)rspClass
-    serviceName:(NSString*)serviceName
-   functionName:(NSString*)functionName
-     completion:(ZYGServiceRespCompletion)completion{
-       
-    // 设置默认的请求头
-    NSMutableDictionary *header = [self defaultHeader];
-       
-    // 调用中台网络库的请求方法
-    [ZYGService(IZYGNetworkService) sendRequestWithReq:req
-                                                header:header
-                                           channelType:ZYGChannelType_ShortConn
-                                              rspClass:rspClass
-                                           ServiceName:serviceName
-                                          functionName:functionName
-                                            completion:completion];
-}
-
 ```
-
-
-
-##### 模块的自定义
-
-当某个模块的对象需要在初始化完成后进行一些操作，比如注册服务端的推送消息、数据的初始化或者注册通知等。为了避免直接修改脚本生成的代码，这时候就需要创建一个模块对应的分类，并使用`method swizzling`替换掉父类的`customMethod`方法。
 
 `HXSystemServiceComponent+custom.h`
 
 ```objective-c
-
 #import "HXSystemServiceComponent.h"
-
 @interface HXSystemServiceComponent (custom)<ZYGNetWorkServiceBroadCastDelegate>
-
+  
 @end
 ```
 
 `HXSystemServiceComponent+custom.m`
 
 ```objective-c
-
 #import "HXSystemServiceComponent+custom.h"
-#import "HXRuntime.h"
-
 @implementation HXSystemServiceComponent (custom)
-
-+ (void)load
-{
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-      	// 方法交换，替换掉父类的customMethod方法(确保只发生一次替换)
-        hx_swizzleMethod([self class], @selector(customMethod), @selector(hx_swizzled_customMethod));
-    });
-}
-
--(void)hx_swizzled_customMethod{
+  
+-(void)serviceModuleCustomMethod{
     [ZYGService(IZYGNetworkService) addDelegate:self];
-    [ZYGService(IZYGNetworkService) registerCmdid:PB3SystemCmdId_SystemMsgCmdId
-                                         forClass:[PB3PushCircleMsg class]];
+    [ZYGService(IZYGNetworkService) registerCmdid:PB3SystemCmdId_SystemSquareComMsgCmdId
+                                         forClass:[PB3CommonMsgInfo class]];
 }
 
 #pragma mark - ZYGNetWorkServiceBroadCastDelegate
@@ -443,16 +258,17 @@ ZYGSERVICE_COMPONENT_DECLARE(IHXVersionServiceComponent, ZYGServiceLoadType_OnNe
 
 
 
-### 总结
+##### 四、最后
 
-`auto_proto.sh`脚本主要做一下几件事：
+[`auto_proto.sh`](https://github.com/zwp/PBConvert/blob/master/auto_proto.sh)脚本主要做一下几件事：
 
 1、根据传入的分支拉取pb仓库最新的代码；
 
 2、执行`Python`脚本，删除部分无用的文件，只留下`*.ext.proto`文件;
 
-3、将`*.ext.proto`中的`message`、`enum`等转化成oc实体类；
+3、用`protobuf`编译器将`*.ext.proto`中的`message`、`enum`等编译转化成OC实体类；
 
 4、解析、提取`*.ext.proto`文件中的`service`相关信息；
 
-5、根据提取的信息生成oc文件。
+5、根据提取的信息生成OC文件。
+
