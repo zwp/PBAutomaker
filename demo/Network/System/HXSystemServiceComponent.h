@@ -1,5 +1,5 @@
 //
-//  HXVersionServiceComponent.h
+//  HXSystemServiceComponent.h
 //  demo
 //
 //  Created by zwp on 2021/1/26.
@@ -8,11 +8,11 @@
 
 //⚠️ 该文件由脚本自动生成，请不要手动更改
 
-#import "IHXVersionServiceComponent.h"
+#import "IHXSystemServiceComponent.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface HXVersionServiceComponent : NSObject<IHXVersionServiceComponent>
+@interface HXSystemServiceComponent : NSObject<IHXSystemServiceComponent>
 
 @property (nonatomic, copy) NSString *serviceModule;
 
